@@ -21,8 +21,9 @@ export async function POST(req: NextRequest) {
       return new Response('Missing required fields', { status: 400 });
     }
 
-    const ROOT_DIR = path.resolve(process.cwd(), '../');
-    const topicPath = path.join(ROOT_DIR, subject, topic);
+    // For local development, save to public folder
+    const PUBLIC_DIR = path.resolve(process.cwd(), 'public');
+    const topicPath = path.join(PUBLIC_DIR, subject, topic);
 
     // Ensure directory exists
     if (!fs.existsSync(topicPath)) {

@@ -2,8 +2,8 @@ import fs from 'fs';
 import path from 'path';
 import { NextRequest } from 'next/server';
 
-// Root directory where subjects are stored
-const ROOT_DIR = path.resolve(process.cwd(), '../');
+// For Vercel deployment, read from public folder
+const PUBLIC_DIR = path.resolve(process.cwd(), 'public');
 const SUBJECTS = [
   'BIOLOGY_9',
   'CHEMISTRY_9',
@@ -15,25 +15,40 @@ const SUBJECTS = [
 
 function scanPdfs(dir: string): string[] {
   let results: string[] = [];
-  const list = fs.readdirSync(dir);
-  list.forEach((file) => {
-    const filePath = path.join(dir, file);
-    const stat = fs.statSync(filePath);
-    if (stat && stat.isDirectory()) {
-      results = results.concat(scanPdfs(filePath));
-    } else if (file.toLowerCase().endsWith('.pdf')) {
-      results.push(filePath);
+  try {
+    if (!fs.existsSync(dir)) {
+      return results;
     }
-  });
+    const list = fs.readdirSync(dir);
+    list.forEach((file) => {
+      const filePath = path.join(dir, file);
+      const stat = fs.statSync(filePath);
+      if (stat && stat.isDirectory()) {
+        results = results.concat(scanPdfs(filePath));
+      } else if (file.toLowerCase().endsWith('.pdf')) {
+        // Store relative path from public folder
+        const relativePath = path.relative(PUBLIC_DIR, filePath);
+        results.push(relativePath);
+      }
+    });
+  } catch (error) {
+    console.error('Error scanning PDFs:', error);
+  }
   return results;
 }
 
 export async function GET(req: NextRequest) {
   const pdfsBySubject: Record<string, Record<string, string[]>> = {};
   SUBJECTS.forEach((subject) => {
-    const subjectPath = path.join(ROOT_DIR, subject);
+    const subjectPath = path.join(PUBLIC_DIR, subject);
     if (fs.existsSync(subjectPath)) {
-      const topics = fs.readdirSync(subjectPath).filter((f) => fs.statSync(path.join(subjectPath, f)).isDirectory());
+      const topics = fs.readdirSync(subjectPath).filter((f) => {
+        try {
+          return fs.statSync(path.join(subjectPath, f)).isDirectory();
+        } catch {
+          return false;
+        }
+      });
       pdfsBySubject[subject] = {};
       topics.forEach((topic) => {
         const topicPath = path.join(subjectPath, topic);
